@@ -21,13 +21,16 @@ import {
   FileSpreadsheet,
   Eye,
   FileText,
-  HardDrive
+  HardDrive,
+  RefreshCw
 } from 'lucide-react';
 import { CampaignConfig, CampaignImage, CollectedCedula, ElectorRecord } from '../types';
 import { ListaOpcionBadge } from './ListaOpcionBadge';
 import { AdminPadronTab } from './AdminPadronTab';
 import { CedulasFileViewerModal } from './CedulasFileViewerModal';
 import { formatCedulaDisplay } from '../utils/sheetParser';
+import { compressImageFile } from '../utils/imageCompressor';
+import { saveCampaignConfigToCloud, saveElectorsToCloud } from '../services/firebase';
 import * as XLSX from 'xlsx';
 
 interface AdminDashboardModalProps {
@@ -78,6 +81,8 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
   const [manualTelefono, setManualTelefono] = useState('');
   const [copiedSQL, setCopiedSQL] = useState(false);
   const [notification, setNotification] = useState('');
+  const [isSavingCloud, setIsSavingCloud] = useState(false);
+  const [optimizingImageMsg, setOptimizingImageMsg] = useState('');
 
   // Form states for campaign customizer
   const [candidateName, setCandidateName] = useState(campaign.candidateName);
@@ -99,24 +104,44 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
 
   const showNotification = (msg: string) => {
     setNotification(msg);
-    setTimeout(() => setNotification(''), 3000);
+    setTimeout(() => setNotification(''), 4500);
   };
 
-  const handleSaveCampaign = (e: React.FormEvent) => {
+  const handleSaveCampaign = async (e: React.FormEvent) => {
     e.preventDefault();
-    setCampaign((prev) => ({
-      ...prev,
-      candidateName,
-      candidateRole,
-      listNumber,
-      optionNumber,
-      campaignSlogan: slogan,
+    setIsSavingCloud(true);
+    showNotification('Sincronizando foto y configuración con Cloud Firestore...');
+
+    const updatedConfig: CampaignConfig = {
+      ...campaign,
+      candidateName: candidateName.trim(),
+      candidateRole: candidateRole.trim(),
+      listNumber: listNumber.trim(),
+      optionNumber: optionNumber.trim(),
+      campaignSlogan: slogan.trim(),
       candidatePhotoUrl: photoUrl,
       backgroundUrl: bgUrl,
       headerLogoUrl: headerLogo,
       footerLogoUrl: footerLogo,
-    }));
-    showNotification('¡Configuración de campaña actualizada!');
+      logos: {
+        topBadge: `${candidateName.trim()} ${candidateRole.trim()}`,
+        bottomBadge: slogan.trim(),
+        listBadge: `LISTA ${listNumber.trim()} - OPCIÓN ${optionNumber.trim()}`,
+      },
+    };
+
+    // Update local state immediately
+    setCampaign(updatedConfig);
+
+    // Save directly to Cloud Firestore so all mobile phones and clients get it
+    const res = await saveCampaignConfigToCloud(updatedConfig);
+    setIsSavingCloud(false);
+
+    if (res.success) {
+      showNotification('¡Foto y configuración guardadas en la Nube de Firestore con éxito! Sincronizado para todos los dispositivos.');
+    } else {
+      showNotification(`Guardado localmente. Advertencia nube: ${res.error || 'error al conectar'}`);
+    }
   };
 
   const handleManualAdd = (e: React.FormEvent) => {
@@ -646,6 +671,14 @@ CREATE INDEX IF NOT EXISTS idx_cedula ON cedulas_recopiladas(cedula);`;
           {activeTab === 'imagenes' && (
             <form onSubmit={handleSaveCampaign} className="space-y-6">
               
+              {/* Optimizing banner */}
+              {optimizingImageMsg && (
+                <div className="bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 px-4 py-2 rounded-xl text-xs flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin text-cyan-400" />
+                  <span>{optimizingImageMsg}</span>
+                </div>
+              )}
+
               {/* Designed Logo for Candidate Name (Top Left) */}
               <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
                 <div className="flex items-center justify-between">
@@ -658,12 +691,19 @@ CREATE INDEX IF NOT EXISTS idx_cedula ON cedulas_recopiladas(cedula);`;
                     <input
                       type="file"
                       accept="image/*"
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (ev) => setHeaderLogo(ev.target?.result as string);
-                          reader.readAsDataURL(file);
+                          try {
+                            setOptimizingImageMsg('Optimizando y reduciendo imagen del nombre...');
+                            const compressed = await compressImageFile(file, { maxWidth: 800, maxHeight: 500, quality: 0.75 });
+                            setHeaderLogo(compressed);
+                            setOptimizingImageMsg('');
+                            showNotification('¡Imagen de nombre optimizada! Haz clic en "Guardar y Sincronizar" para publicar.');
+                          } catch {
+                            setOptimizingImageMsg('');
+                            showNotification('Error al procesar la imagen seleccionada.');
+                          }
                         }
                       }}
                       className="hidden"
@@ -714,12 +754,19 @@ CREATE INDEX IF NOT EXISTS idx_cedula ON cedulas_recopiladas(cedula);`;
                     <input
                       type="file"
                       accept="image/*"
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (ev) => setFooterLogo(ev.target?.result as string);
-                          reader.readAsDataURL(file);
+                          try {
+                            setOptimizingImageMsg('Optimizando y reduciendo imagen del slogan...');
+                            const compressed = await compressImageFile(file, { maxWidth: 800, maxHeight: 500, quality: 0.75 });
+                            setFooterLogo(compressed);
+                            setOptimizingImageMsg('');
+                            showNotification('¡Logo del slogan optimizado! Haz clic en "Guardar y Sincronizar" para publicar.');
+                          } catch {
+                            setOptimizingImageMsg('');
+                            showNotification('Error al procesar la imagen seleccionada.');
+                          }
                         }
                       }}
                       className="hidden"
@@ -763,17 +810,24 @@ CREATE INDEX IF NOT EXISTS idx_cedula ON cedulas_recopiladas(cedula);`;
                 <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-cyan-300">Foto del Candidato</span>
-                    <label className="cursor-pointer text-[11px] bg-slate-800 px-2 py-1 rounded text-cyan-300">
-                      Subir
+                    <label className="cursor-pointer text-[11px] bg-cyan-900/60 hover:bg-cyan-800 text-cyan-200 border border-cyan-500/40 px-2.5 py-1 rounded-lg font-bold">
+                      Subir foto
                       <input
                         type="file"
                         accept="image/*"
-                        onChange={(e) => {
+                        onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (file) {
-                            const reader = new FileReader();
-                            reader.onload = (ev) => setPhotoUrl(ev.target?.result as string);
-                            reader.readAsDataURL(file);
+                            try {
+                              setOptimizingImageMsg('Optimizando foto del candidato para la nube...');
+                              const compressed = await compressImageFile(file, { maxWidth: 800, maxHeight: 800, quality: 0.80 });
+                              setPhotoUrl(compressed);
+                              setOptimizingImageMsg('');
+                              showNotification('¡Foto optimizada con éxito! Guarda los cambios para sincronizar con todos los dispositivos.');
+                            } catch {
+                              setOptimizingImageMsg('');
+                              showNotification('Error al procesar la foto del candidato.');
+                            }
                           }
                         }}
                         className="hidden"
@@ -785,12 +839,13 @@ CREATE INDEX IF NOT EXISTS idx_cedula ON cedulas_recopiladas(cedula);`;
                       src={photoUrl}
                       alt="Candidato"
                       referrerPolicy="no-referrer"
-                      className="w-12 h-12 rounded-xl object-cover border border-cyan-500 shrink-0"
+                      className="w-12 h-12 rounded-xl object-cover border border-cyan-500 shrink-0 bg-slate-900"
                     />
                     <input
                       type="url"
                       value={photoUrl}
                       onChange={(e) => setPhotoUrl(e.target.value)}
+                      placeholder="URL de foto o sube tu archivo..."
                       className="w-full bg-slate-900 text-white border border-slate-800 rounded-xl p-2 font-mono text-[11px]"
                     />
                   </div>
@@ -799,17 +854,24 @@ CREATE INDEX IF NOT EXISTS idx_cedula ON cedulas_recopiladas(cedula);`;
                 <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-amber-300">Fondo Panorámico</span>
-                    <label className="cursor-pointer text-[11px] bg-slate-800 px-2 py-1 rounded text-amber-300">
-                      Subir
+                    <label className="cursor-pointer text-[11px] bg-amber-900/60 hover:bg-amber-800 text-amber-200 border border-amber-500/40 px-2.5 py-1 rounded-lg font-bold">
+                      Subir fondo
                       <input
                         type="file"
                         accept="image/*"
-                        onChange={(e) => {
+                        onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (file) {
-                            const reader = new FileReader();
-                            reader.onload = (ev) => setBgUrl(ev.target?.result as string);
-                            reader.readAsDataURL(file);
+                            try {
+                              setOptimizingImageMsg('Optimizando imagen panorámica de fondo...');
+                              const compressed = await compressImageFile(file, { maxWidth: 1200, maxHeight: 800, quality: 0.72 });
+                              setBgUrl(compressed);
+                              setOptimizingImageMsg('');
+                              showNotification('¡Fondo optimizado con éxito! Guarda los cambios para publicar.');
+                            } catch {
+                              setOptimizingImageMsg('');
+                              showNotification('Error al procesar el fondo seleccionado.');
+                            }
                           }
                         }}
                         className="hidden"
@@ -821,12 +883,13 @@ CREATE INDEX IF NOT EXISTS idx_cedula ON cedulas_recopiladas(cedula);`;
                       src={bgUrl}
                       alt="Fondo"
                       referrerPolicy="no-referrer"
-                      className="w-14 h-12 rounded-xl object-cover border border-amber-500 shrink-0"
+                      className="w-14 h-12 rounded-xl object-cover border border-amber-500 shrink-0 bg-slate-900"
                     />
                     <input
                       type="url"
                       value={bgUrl}
                       onChange={(e) => setBgUrl(e.target.value)}
+                      placeholder="URL de imagen panorámica..."
                       className="w-full bg-slate-900 text-white border border-slate-800 rounded-xl p-2 font-mono text-[11px]"
                     />
                   </div>
@@ -882,12 +945,28 @@ CREATE INDEX IF NOT EXISTS idx_cedula ON cedulas_recopiladas(cedula);`;
                 </div>
               </div>
 
-              <div className="flex justify-end">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                <div className="text-xs text-slate-400 flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>Se sincroniza automáticamente en Firestore Cloud para celulares y computadoras</span>
+                </div>
+
                 <button
                   type="submit"
-                  className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold px-6 py-3 rounded-xl shadow-lg shadow-cyan-600/30"
+                  disabled={isSavingCloud || !!optimizingImageMsg}
+                  className="w-full sm:w-auto bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 text-white font-black px-6 py-3 rounded-xl shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 cursor-pointer transition-all text-xs sm:text-sm"
                 >
-                  Guardar y Aplicar Cambios
+                  {isSavingCloud ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                      <span>Guardando y Sincronizando en la Nube...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 text-emerald-300" />
+                      <span>Guardar y Publicar en la Nube</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>

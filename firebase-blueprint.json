@@ -1,28 +1,31 @@
 {
   "entities": {
-    "collected_cedulas": {
-      "collection": "cedulas_recopiladas",
+    "collectedCedula": {
+      "title": "CollectedCedula",
       "description": "Cédulas consultadas y registradas por los electores y el equipo de campaña",
-      "fields": {
-        "cedula": { "type": "string", "description": "Número de cédula de identidad" },
-        "nombre": { "type": "string", "description": "Nombre y apellido del elector", "optional": true },
-        "barrio": { "type": "string", "description": "Barrio del elector", "optional": true },
-        "localVotacion": { "type": "string", "description": "Local de votación asignado", "optional": true },
-        "mesa": { "type": "string", "description": "Número de mesa", "optional": true },
-        "orden": { "type": "string", "description": "Número de orden", "optional": true },
-        "responsable": { "type": "string", "description": "Responsable de mesa o zona", "optional": true },
-        "telefono": { "type": "string", "description": "Teléfono de contacto", "optional": true },
-        "observaciones": { "type": "string", "description": "Notas u observaciones", "optional": true },
-        "pasoPorMesa": { "type": "boolean", "description": "Indica si el elector ya votó o pasó por la mesa", "optional": true },
-        "horaVoto": { "type": "string", "description": "Hora en que pasó por la mesa", "optional": true },
-        "registradoPor": { "type": "string", "description": "Mesa u operador que registró el voto", "optional": true },
-        "createdAt": { "type": "string", "description": "Fecha y hora ISO del registro" }
-      }
+      "type": "object",
+      "properties": {
+        "cedula": { "type": "string" },
+        "nombre": { "type": "string" },
+        "barrio": { "type": "string" },
+        "localVotacion": { "type": "string" },
+        "mesa": { "type": "string" },
+        "orden": { "type": "string" },
+        "responsable": { "type": "string" },
+        "telefono": { "type": "string" },
+        "observaciones": { "type": "string" },
+        "pasoPorMesa": { "type": "boolean" },
+        "horaVoto": { "type": "string" },
+        "registradoPor": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["cedula", "createdAt"]
     },
-    "campaign_config": {
-      "collection": "campaign_config",
-      "description": "Configuración visual e institucional de la campaña",
-      "fields": {
+    "campaignConfig": {
+      "title": "CampaignConfig",
+      "description": "Configuración visual e institucional de la campaña y candidato",
+      "type": "object",
+      "properties": {
         "candidateName": { "type": "string" },
         "candidateRole": { "type": "string" },
         "listNumber": { "type": "string" },
@@ -30,10 +33,36 @@
         "campaignSlogan": { "type": "string" },
         "candidatePhotoUrl": { "type": "string" },
         "backgroundUrl": { "type": "string" },
-        "headerLogoUrl": { "type": "string", "optional": true },
-        "footerLogoUrl": { "type": "string", "optional": true },
+        "headerLogoUrl": { "type": "string" },
+        "footerLogoUrl": { "type": "string" },
         "updatedAt": { "type": "string" }
-      }
+      },
+      "required": ["candidateName", "listNumber", "campaignSlogan"]
+    },
+    "padronChunk": {
+      "title": "PadronChunk",
+      "description": "Bloque de electores del padrón oficial sincronizados en la nube",
+      "type": "object",
+      "properties": {
+        "chunkIndex": { "type": "number" },
+        "items": { "type": "array" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["chunkIndex", "items"]
+    }
+  },
+  "firestore": {
+    "/cedulas_recopiladas/{cedulaId}": {
+      "schema": "collectedCedula",
+      "description": "Registro en tiempo real de cédulas y votantes"
+    },
+    "/campaign_config/{docId}": {
+      "schema": "campaignConfig",
+      "description": "Configuración y fotos del candidato y campaña compartida entre dispositivos"
+    },
+    "/padron_electores/{chunkId}": {
+      "schema": "padronChunk",
+      "description": "Padrón electoral cargado y compartido en la nube"
     }
   }
 }

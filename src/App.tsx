@@ -12,7 +12,10 @@ import {
   deleteCollectedCedulaFromCloud,
   clearAllCollectedCedulasFromCloud,
   saveCampaignConfigToCloud,
-  loadCampaignConfigFromCloud,
+  subscribeToCampaignConfig,
+  saveElectorsToCloud,
+  subscribeToElectors,
+  testConnection,
 } from './services/firebase';
 
 export default function App() {
@@ -102,30 +105,36 @@ export default function App() {
 
   // Real-time Cloud Database synchronization (Firebase Firestore)
   useEffect(() => {
+    // Check Firestore connection
+    testConnection();
+
     // 1. Subscribe to Cloud Cedulas in real-time
-    const unsubscribe = subscribeToCollectedCedulas((cloudCedulas) => {
+    const unsubscribeCedulas = subscribeToCollectedCedulas((cloudCedulas) => {
       if (cloudCedulas && cloudCedulas.length > 0) {
         setCollectedCedulas(cloudCedulas);
       }
     });
 
-    // 2. Load Cloud Campaign Config if exists
-    loadCampaignConfigFromCloud().then((cloudConfig) => {
-      if (cloudConfig) {
-        setCampaign((prev) => ({
-          ...prev,
-          ...cloudConfig,
-        }));
+    // 2. Subscribe to Cloud Campaign Config in real-time
+    const unsubscribeCampaign = subscribeToCampaignConfig((cloudConfig) => {
+      if (cloudConfig && cloudConfig.candidateName) {
+        setCampaign(cloudConfig);
       }
     });
 
-    return () => unsubscribe();
-  }, []);
+    // 3. Subscribe to Cloud Electors Padron in real-time
+    const unsubscribeElectors = subscribeToElectors((cloudElectors) => {
+      if (cloudElectors && cloudElectors.length > 0) {
+        setElectors(cloudElectors);
+      }
+    });
 
-  // Save campaign updates to Cloud Firestore
-  useEffect(() => {
-    saveCampaignConfigToCloud(campaign);
-  }, [campaign]);
+    return () => {
+      unsubscribeCedulas();
+      unsubscribeCampaign();
+      unsubscribeElectors();
+    };
+  }, []);
 
   // Search Elector by Cedula
   const handleSearchElector = (cedula: string): { found: boolean; elector?: ElectorRecord } => {
@@ -139,25 +148,47 @@ export default function App() {
     return { found: false };
   };
 
-  // Electors Database CRUD Handlers
+  // Electors Database CRUD Handlers with Cloud Firestore Persistence
+  const handleSetElectors = (newElectors: React.SetStateAction<ElectorRecord[]>) => {
+    setElectors((prev) => {
+      const next = typeof newElectors === 'function' ? newElectors(prev) : newElectors;
+      saveElectorsToCloud(next);
+      return next;
+    });
+  };
+
   const handleAddElector = (elector: ElectorRecord) => {
-    setElectors((prev) => [elector, ...prev]);
+    setElectors((prev) => {
+      const next = [elector, ...prev];
+      saveElectorsToCloud(next);
+      return next;
+    });
   };
 
   const handleUpdateElector = (updated: ElectorRecord) => {
-    setElectors((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+    setElectors((prev) => {
+      const next = prev.map((e) => (e.id === updated.id ? updated : e));
+      saveElectorsToCloud(next);
+      return next;
+    });
   };
 
   const handleDeleteElector = (id: string) => {
-    setElectors((prev) => prev.filter((e) => e.id !== id));
+    setElectors((prev) => {
+      const next = prev.filter((e) => e.id !== id);
+      saveElectorsToCloud(next);
+      return next;
+    });
   };
 
   const handleClearElectors = () => {
     setElectors([]);
+    saveElectorsToCloud([]);
   };
 
   const handleRestoreSampleElectors = () => {
     setElectors(INITIAL_ELECTORS);
+    saveElectorsToCloud(INITIAL_ELECTORS);
   };
 
   // Save Cedula Handler (from Main Public Screen)
@@ -322,7 +353,7 @@ export default function App() {
         campaign={campaign}
         setCampaign={setCampaign}
         electors={electors}
-        setElectors={setElectors}
+        setElectors={handleSetElectors}
         onAddElector={handleAddElector}
         onUpdateElector={handleUpdateElector}
         onDeleteElector={handleDeleteElector}

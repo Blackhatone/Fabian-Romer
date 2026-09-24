@@ -6,7 +6,7 @@ service cloud.firestore {
       return data.keys().hasAll(['cedula', 'createdAt'])
         && data.cedula is string
         && data.cedula.size() > 0
-        && data.cedula.size() <= 20
+        && data.cedula.size() <= 30
         && data.createdAt is string
         && (!('nombre' in data) || data.nombre is string)
         && (!('barrio' in data) || data.barrio is string)
@@ -29,6 +29,11 @@ service cloud.firestore {
     }
 
     match /campaign_config/{docId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    match /padron_electores/{docId} {
       allow read: if true;
       allow write: if true;
     }

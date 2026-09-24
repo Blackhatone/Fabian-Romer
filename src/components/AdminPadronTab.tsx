@@ -24,6 +24,7 @@ import {
   formatCedulaDisplay,
   normalizeCedula
 } from '../utils/sheetParser';
+import { saveElectorsToCloud } from '../services/firebase';
 import * as XLSX from 'xlsx';
 
 interface AdminPadronTabProps {
@@ -50,6 +51,7 @@ export const AdminPadronTab: React.FC<AdminPadronTabProps> = ({
   const [showPasteBox, setShowPasteBox] = useState(false);
   const [importMode, setImportMode] = useState<'replace' | 'append'>('replace');
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [isSyncingCloud, setIsSyncingCloud] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 25;
 
@@ -333,7 +335,26 @@ export const AdminPadronTab: React.FC<AdminPadronTabProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={async () => {
+                setIsSyncingCloud(true);
+                const res = await saveElectorsToCloud(electors);
+                setIsSyncingCloud(false);
+                if (res.success) {
+                  showToast('success', `¡Padrón de ${res.totalSaved} electores guardado y sincronizado en la Nube de Firestore!`);
+                } else {
+                  showToast('error', `Error al sincronizar con la nube: ${res.error}`);
+                }
+              }}
+              disabled={isSyncingCloud}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold border border-emerald-400/50 shadow-md transition-all cursor-pointer"
+              title="Guardar y sincronizar padrón en Firebase Firestore para todos los dispositivos"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncingCloud ? 'animate-spin' : ''}`} />
+              <span>{isSyncingCloud ? 'Sincronizando...' : 'Sincronizar Nube'}</span>
+            </button>
+
             <button
               onClick={handleDownloadTemplate}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700 transition-colors cursor-pointer"
