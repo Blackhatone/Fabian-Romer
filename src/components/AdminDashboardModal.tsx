@@ -22,14 +22,15 @@ import {
   Eye,
   FileText,
   HardDrive,
-  RefreshCw
+  RefreshCw,
+  Sparkles
 } from 'lucide-react';
 import { CampaignConfig, CampaignImage, CollectedCedula, ElectorRecord } from '../types';
 import { ListaOpcionBadge } from './ListaOpcionBadge';
 import { AdminPadronTab } from './AdminPadronTab';
 import { CedulasFileViewerModal } from './CedulasFileViewerModal';
 import { formatCedulaDisplay } from '../utils/sheetParser';
-import { compressImageFile } from '../utils/imageCompressor';
+import { compressImageFile, removeWhiteBackground } from '../utils/imageCompressor';
 import { saveCampaignConfigToCloud, saveElectorsToCloud } from '../services/firebase';
 import * as XLSX from 'xlsx';
 
@@ -716,7 +717,7 @@ CREATE INDEX IF NOT EXISTS idx_cedula ON cedulas_recopiladas(cedula);`;
                       src={headerLogo}
                       alt="Logo Nombre"
                       referrerPolicy="no-referrer"
-                      className="w-20 h-12 rounded-xl object-contain bg-slate-900 border border-emerald-500 shrink-0"
+                      className="w-20 h-12 rounded-xl object-contain bg-slate-900/90 border border-emerald-500 shrink-0"
                     />
                   ) : (
                     <div className="w-20 h-12 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500 text-[10px] text-center shrink-0 font-mono">
@@ -740,6 +741,30 @@ CREATE INDEX IF NOT EXISTS idx_cedula ON cedulas_recopiladas(cedula);`;
                     </button>
                   )}
                 </div>
+                {headerLogo && (
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          setOptimizingImageMsg('Removiendo fondo blanco del logo...');
+                          const transparent = await removeWhiteBackground(headerLogo);
+                          setHeaderLogo(transparent);
+                          setOptimizingImageMsg('');
+                          showNotification('¡Fondo blanco eliminado con éxito! Logo 100% transparente.');
+                        } catch {
+                          setOptimizingImageMsg('');
+                          showNotification('No se pudo procesar la imagen.');
+                        }
+                      }}
+                      className="flex items-center gap-1.5 text-xs text-emerald-300 hover:text-emerald-200 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/50 px-2.5 py-1.5 rounded-lg font-semibold transition-all cursor-pointer shadow"
+                      title="Elimina el fondo blanco y lo vuelve transparente"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Quitar fondo blanco (Hacer transparente)</span>
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Designed Logo for Slogan (Bottom Right) */}
@@ -779,7 +804,7 @@ CREATE INDEX IF NOT EXISTS idx_cedula ON cedulas_recopiladas(cedula);`;
                       src={footerLogo}
                       alt="Logo Slogan"
                       referrerPolicy="no-referrer"
-                      className="w-20 h-12 rounded-xl object-contain bg-slate-900 border border-amber-500 shrink-0"
+                      className="w-20 h-12 rounded-xl object-contain bg-slate-900/90 border border-amber-500 shrink-0"
                     />
                   ) : (
                     <div className="w-20 h-12 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500 text-[10px] text-center shrink-0 font-mono">
@@ -803,6 +828,30 @@ CREATE INDEX IF NOT EXISTS idx_cedula ON cedulas_recopiladas(cedula);`;
                     </button>
                   )}
                 </div>
+                {footerLogo && (
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          setOptimizingImageMsg('Removiendo fondo blanco del logo...');
+                          const transparent = await removeWhiteBackground(footerLogo);
+                          setFooterLogo(transparent);
+                          setOptimizingImageMsg('');
+                          showNotification('¡Fondo blanco eliminado con éxito! Logo 100% transparente.');
+                        } catch {
+                          setOptimizingImageMsg('');
+                          showNotification('No se pudo procesar la imagen.');
+                        }
+                      }}
+                      className="flex items-center gap-1.5 text-xs text-amber-300 hover:text-amber-200 bg-amber-950/80 hover:bg-amber-900 border border-amber-500/50 px-2.5 py-1.5 rounded-lg font-semibold transition-all cursor-pointer shadow"
+                      title="Elimina el fondo blanco y lo vuelve transparente"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Quitar fondo blanco (Hacer transparente)</span>
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Candidate Photo & Background */}
@@ -819,11 +868,11 @@ CREATE INDEX IF NOT EXISTS idx_cedula ON cedulas_recopiladas(cedula);`;
                           const file = e.target.files?.[0];
                           if (file) {
                             try {
-                              setOptimizingImageMsg('Optimizando foto del candidato para la nube...');
-                              const compressed = await compressImageFile(file, { maxWidth: 800, maxHeight: 800, quality: 0.80 });
+                              setOptimizingImageMsg('Optimizando foto del candidato con transparencia...');
+                              const compressed = await compressImageFile(file, { maxWidth: 800, maxHeight: 800, quality: 0.85 });
                               setPhotoUrl(compressed);
                               setOptimizingImageMsg('');
-                              showNotification('¡Foto optimizada con éxito! Guarda los cambios para sincronizar con todos los dispositivos.');
+                              showNotification('¡Foto cargada con transparencia intacta! Guarda los cambios para sincronizar.');
                             } catch {
                               setOptimizingImageMsg('');
                               showNotification('Error al procesar la foto del candidato.');
@@ -839,7 +888,7 @@ CREATE INDEX IF NOT EXISTS idx_cedula ON cedulas_recopiladas(cedula);`;
                       src={photoUrl}
                       alt="Candidato"
                       referrerPolicy="no-referrer"
-                      className="w-12 h-12 rounded-xl object-cover border border-cyan-500 shrink-0 bg-slate-900"
+                      className="w-12 h-12 rounded-xl object-contain border border-cyan-500 shrink-0 bg-slate-900"
                     />
                     <input
                       type="url"
@@ -849,6 +898,30 @@ CREATE INDEX IF NOT EXISTS idx_cedula ON cedulas_recopiladas(cedula);`;
                       className="w-full bg-slate-900 text-white border border-slate-800 rounded-xl p-2 font-mono text-[11px]"
                     />
                   </div>
+                  {photoUrl && (
+                    <div className="pt-1">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            setOptimizingImageMsg('Removiendo fondo blanco de la foto...');
+                            const transparent = await removeWhiteBackground(photoUrl);
+                            setPhotoUrl(transparent);
+                            setOptimizingImageMsg('');
+                            showNotification('¡Fondo blanco eliminado con éxito! La foto ahora es 100% transparente.');
+                          } catch {
+                            setOptimizingImageMsg('');
+                            showNotification('No se pudo procesar la imagen.');
+                          }
+                        }}
+                        className="w-full flex items-center justify-center gap-1.5 text-xs text-cyan-300 hover:text-cyan-200 bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 px-2.5 py-1.5 rounded-lg font-semibold transition-all cursor-pointer shadow"
+                        title="Elimina automáticamente el fondo blanco y lo vuelve transparente"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>Quitar fondo blanco (Hacer transparente)</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">

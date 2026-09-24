@@ -73,16 +73,16 @@ export async function saveCampaignConfigToCloud(
     let optimizedFooterLogo = config.footerLogoUrl || '';
 
     if (optimizedPhoto && optimizedPhoto.startsWith('data:image')) {
-      optimizedPhoto = await compressBase64Image(optimizedPhoto, { maxWidth: 800, maxHeight: 800, quality: 0.78 });
+      optimizedPhoto = await compressBase64Image(optimizedPhoto, { maxWidth: 800, maxHeight: 800, quality: 0.82, mimeType: 'image/webp', preserveTransparency: true });
     }
     if (optimizedBg && optimizedBg.startsWith('data:image')) {
       optimizedBg = await compressBase64Image(optimizedBg, { maxWidth: 1200, maxHeight: 800, quality: 0.72 });
     }
     if (optimizedHeaderLogo && optimizedHeaderLogo.startsWith('data:image')) {
-      optimizedHeaderLogo = await compressBase64Image(optimizedHeaderLogo, { maxWidth: 800, maxHeight: 500, quality: 0.75 });
+      optimizedHeaderLogo = await compressBase64Image(optimizedHeaderLogo, { maxWidth: 800, maxHeight: 500, quality: 0.80, mimeType: 'image/webp', preserveTransparency: true });
     }
     if (optimizedFooterLogo && optimizedFooterLogo.startsWith('data:image')) {
-      optimizedFooterLogo = await compressBase64Image(optimizedFooterLogo, { maxWidth: 800, maxHeight: 500, quality: 0.75 });
+      optimizedFooterLogo = await compressBase64Image(optimizedFooterLogo, { maxWidth: 800, maxHeight: 500, quality: 0.80, mimeType: 'image/webp', preserveTransparency: true });
     }
 
     const payload = {
