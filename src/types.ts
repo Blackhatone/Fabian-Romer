@@ -12,8 +12,15 @@ export interface CollectedCedula {
   observaciones?: string;
   pasoPorMesa?: boolean;
   horaVoto?: string;
+  puestoControl?: string; // Puesto de Control (PC) desde el cual se registró
   registradoPor?: string;
   createdAt: string;
+}
+
+export interface AdminSecurityConfig {
+  passwordHash: string;
+  updatedAt?: string;
+  updatedBy?: string;
 }
 
 export interface ElectorRecord {

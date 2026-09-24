@@ -18,6 +18,7 @@ service cloud.firestore {
         && (!('observaciones' in data) || data.observaciones is string)
         && (!('pasoPorMesa' in data) || data.pasoPorMesa is bool)
         && (!('horaVoto' in data) || data.horaVoto is string)
+        && (!('puestoControl' in data) || data.puestoControl is string)
         && (!('registradoPor' in data) || data.registradoPor is string);
     }
 
@@ -26,6 +27,13 @@ service cloud.firestore {
       allow create: if isValidCedulaDoc(request.resource.data);
       allow update: if isValidCedulaDoc(request.resource.data);
       allow delete: if true;
+    }
+
+    match /admin_security/{docId} {
+      allow read: if true;
+      allow write: if request.resource.data.keys().hasAll(['passwordHash'])
+        && request.resource.data.passwordHash is string
+        && request.resource.data.passwordHash.size() == 64;
     }
 
     match /campaign_config/{docId} {

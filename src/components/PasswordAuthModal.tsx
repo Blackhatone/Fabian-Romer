@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, KeyRound, X, ShieldAlert } from 'lucide-react';
+import { Lock, KeyRound, X, ShieldAlert, Loader2 } from 'lucide-react';
+import { verifyAdminPassword } from '../services/firebase';
 
 interface PasswordAuthModalProps {
   isOpen: boolean;
@@ -15,28 +16,43 @@ export const PasswordAuthModal: React.FC<PasswordAuthModalProps> = ({
   const [password, setPassword] = useState('');
   const [error, setError] = useState(false);
   const [isShaking, setIsShaking] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setPassword('');
       setError(false);
+      setIsValidating(false);
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Password strictly validated against 2027 without exposing hints in UI
-    if (password === '2027') {
-      setPassword('');
-      setError(false);
-      onSuccess();
-    } else {
+    if (!password.trim() || isValidating) return;
+
+    setIsValidating(true);
+    setError(false);
+
+    try {
+      const isValid = await verifyAdminPassword(password);
+      if (isValid) {
+        setPassword('');
+        setError(false);
+        setIsValidating(false);
+        onSuccess();
+      } else {
+        setError(true);
+        setIsShaking(true);
+        setPassword('');
+        setIsValidating(false);
+        setTimeout(() => setIsShaking(false), 500);
+      }
+    } catch (err) {
+      console.error('Auth verification error:', err);
       setError(true);
-      setIsShaking(true);
-      setPassword('');
-      setTimeout(() => setIsShaking(false), 500);
+      setIsValidating(false);
     }
   };
 
@@ -95,10 +111,20 @@ export const PasswordAuthModal: React.FC<PasswordAuthModalProps> = ({
 
             <button
               type="submit"
-              className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 rounded-2xl text-sm transition-colors shadow-lg shadow-cyan-600/20 flex items-center justify-center gap-2 cursor-pointer"
+              disabled={isValidating}
+              className="w-full bg-cyan-600 hover:bg-cyan-500 disabled:bg-cyan-800/60 disabled:cursor-not-allowed text-white font-bold py-3 rounded-2xl text-sm transition-colors shadow-lg shadow-cyan-600/20 flex items-center justify-center gap-2 cursor-pointer"
             >
-              <KeyRound className="w-4 h-4" />
-              <span>Desbloquear</span>
+              {isValidating ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Verificando credenciales...</span>
+                </>
+              ) : (
+                <>
+                  <KeyRound className="w-4 h-4" />
+                  <span>Desbloquear</span>
+                </>
+              )}
             </button>
           </form>
         </div>

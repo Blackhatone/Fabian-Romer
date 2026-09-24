@@ -66,6 +66,14 @@ export default function App() {
   // Hidden Admin & Password Gate State
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [operatorPuesto, setOperatorPuesto] = useState<string>(() => {
+    return localStorage.getItem('operador_puesto_control') || 'PC 1';
+  });
+
+  const handleSetOperatorPuesto = (newPuesto: string) => {
+    setOperatorPuesto(newPuesto);
+    localStorage.setItem('operador_puesto_control', newPuesto);
+  };
 
   // Sync campaign config to LocalStorage
   useEffect(() => {
@@ -264,13 +272,14 @@ export default function App() {
   const handleTogglePasoPorMesa = (
     record: CollectedCedula | ElectorRecord,
     status: boolean,
-    operador?: string
+    operadorOrPC?: string
   ) => {
     const cleanCedula = normalizeCedula(record.cedula);
     const existing = collectedCedulas.find((c) => normalizeCedula(c.cedula) === cleanCedula);
 
     const now = new Date();
     const timeFormatted = now.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' });
+    const activePC = operadorOrPC || operatorPuesto || 'PC 1';
 
     let updatedRecord: CollectedCedula;
 
@@ -279,7 +288,8 @@ export default function App() {
         ...existing,
         pasoPorMesa: status,
         horaVoto: status ? `${timeFormatted} hs` : undefined,
-        registradoPor: operador || existing.registradoPor || `Mesa ${existing.mesa || 'General'}`,
+        puestoControl: status ? (operadorOrPC || existing.puestoControl || activePC) : existing.puestoControl,
+        registradoPor: status ? activePC : existing.registradoPor || `Mesa ${existing.mesa || 'General'}`,
       };
       setCollectedCedulas((prev) =>
         prev.map((c) => (normalizeCedula(c.cedula) === cleanCedula ? updatedRecord : c))
@@ -297,14 +307,15 @@ export default function App() {
         responsable: match ? match.responsable : (record as CollectedCedula).responsable,
         pasoPorMesa: status,
         horaVoto: status ? `${timeFormatted} hs` : undefined,
-        registradoPor: operador || `Mesa ${match?.mesa || 'General'}`,
+        puestoControl: status ? activePC : undefined,
+        registradoPor: activePC,
         createdAt: now.toISOString(),
       };
       setCollectedCedulas((prev) => [updatedRecord, ...prev]);
     }
 
     // Persist to Cloud Firestore so all users see it in real time
-    togglePasoPorMesaInCloud(updatedRecord, status, operador);
+    togglePasoPorMesaInCloud(updatedRecord, status, activePC, activePC);
   };
 
   // Add new image to gallery
@@ -337,6 +348,8 @@ export default function App() {
         onSaveCedula={handleSaveCedula}
         onTogglePasoPorMesa={handleTogglePasoPorMesa}
         onOpenAdmin={handleOpenAdminGate}
+        operatorPuesto={operatorPuesto}
+        setOperatorPuesto={handleSetOperatorPuesto}
       />
 
       {/* PASSWORD PROTECTION GATE (SEALED ACCESS WITH PIN 2027) */}

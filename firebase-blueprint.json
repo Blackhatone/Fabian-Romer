@@ -16,10 +16,22 @@
         "observaciones": { "type": "string" },
         "pasoPorMesa": { "type": "boolean" },
         "horaVoto": { "type": "string" },
+        "puestoControl": { "type": "string" },
         "registradoPor": { "type": "string" },
         "createdAt": { "type": "string" }
       },
       "required": ["cedula", "createdAt"]
+    },
+    "adminSecurity": {
+      "title": "AdminSecurity",
+      "description": "Configuración de seguridad y credenciales criptográficas de administración",
+      "type": "object",
+      "properties": {
+        "passwordHash": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "updatedBy": { "type": "string" }
+      },
+      "required": ["passwordHash"]
     },
     "campaignConfig": {
       "title": "CampaignConfig",
@@ -59,6 +71,10 @@
     "/campaign_config/{docId}": {
       "schema": "campaignConfig",
       "description": "Configuración y fotos del candidato y campaña compartida entre dispositivos"
+    },
+    "/admin_security/{docId}": {
+      "schema": "adminSecurity",
+      "description": "Credenciales y hashes criptográficos de acceso al panel de administración"
     },
     "/padron_electores/{chunkId}": {
       "schema": "padronChunk",

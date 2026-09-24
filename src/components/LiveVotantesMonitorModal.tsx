@@ -12,7 +12,8 @@ import {
   Building,
   MapPin,
   TrendingUp,
-  UserCheck
+  UserCheck,
+  Monitor
 } from 'lucide-react';
 import { CollectedCedula, ElectorRecord, CampaignConfig } from '../types';
 import { formatCedulaDisplay, normalizeCedula } from '../utils/sheetParser';
@@ -24,7 +25,9 @@ interface LiveVotantesMonitorModalProps {
   campaign: CampaignConfig;
   electors: ElectorRecord[];
   collectedCedulas: CollectedCedula[];
-  onTogglePasoPorMesa: (record: CollectedCedula | ElectorRecord, status: boolean) => void;
+  onTogglePasoPorMesa: (record: CollectedCedula | ElectorRecord, status: boolean, puestoControl?: string) => void;
+  operatorPuesto?: string;
+  onOpenPuestoModal?: () => void;
 }
 
 export const LiveVotantesMonitorModal: React.FC<LiveVotantesMonitorModalProps> = ({
@@ -34,9 +37,12 @@ export const LiveVotantesMonitorModal: React.FC<LiveVotantesMonitorModalProps> =
   electors,
   collectedCedulas,
   onTogglePasoPorMesa,
+  operatorPuesto,
+  onOpenPuestoModal,
 }) => {
   const [filterType, setFilterType] = useState<'voted' | 'pending' | 'all'>('voted');
   const [selectedMesa, setSelectedMesa] = useState<string>('all');
+  const [selectedPC, setSelectedPC] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
   if (!isOpen) return null;
@@ -55,6 +61,14 @@ export const LiveVotantesMonitorModal: React.FC<LiveVotantesMonitorModalProps> =
   const totalPending = Math.max(0, totalElectors - totalVoted);
   const participationRate = totalElectors > 0 ? ((totalVoted / totalElectors) * 100).toFixed(1) : '0';
 
+  // Calculate stats per PC (Puesto de Control)
+  const pcStatsMap = new Map<string, number>();
+  votedMap.forEach((c) => {
+    const pcName = c.puestoControl?.trim() || 'General';
+    pcStatsMap.set(pcName, (pcStatsMap.get(pcName) || 0) + 1);
+  });
+  const pcList = Array.from(pcStatsMap.entries()).sort((a, b) => b[1] - a[1]);
+
   // Get distinct mesas
   const mesasSet = new Set<string>();
   electors.forEach((e) => {
@@ -72,6 +86,7 @@ export const LiveVotantesMonitorModal: React.FC<LiveVotantesMonitorModalProps> =
       voteRecord,
       hasVoted,
       horaVoto: voteRecord?.horaVoto,
+      puestoControl: voteRecord?.puestoControl,
       registradoPor: voteRecord?.registradoPor,
     };
   });
@@ -87,6 +102,12 @@ export const LiveVotantesMonitorModal: React.FC<LiveVotantesMonitorModalProps> =
       return false;
     }
 
+    // Filter by Puesto de Control (PC)
+    if (selectedPC !== 'all') {
+      const itemPC = item.puestoControl?.trim() || 'General';
+      if (itemPC !== selectedPC) return false;
+    }
+
     // Filter by search query
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase();
@@ -95,7 +116,8 @@ export const LiveVotantesMonitorModal: React.FC<LiveVotantesMonitorModalProps> =
       const matchBarrio = item.elector.barrio.toLowerCase().includes(q);
       const matchLocal = item.elector.localVotacion.toLowerCase().includes(q);
       const matchResp = item.elector.responsable?.toLowerCase().includes(q);
-      return matchName || matchCed || matchBarrio || matchLocal || matchResp;
+      const matchPC = item.puestoControl?.toLowerCase().includes(q);
+      return matchName || matchCed || matchBarrio || matchLocal || matchResp || matchPC;
     }
 
     return true;
@@ -104,7 +126,7 @@ export const LiveVotantesMonitorModal: React.FC<LiveVotantesMonitorModalProps> =
   // Export filtered voters to Excel
   const handleExportExcel = () => {
     const wsData = [
-      ['N°', 'C.I. N°', 'Nombre y Apellido', 'Mesa', 'Orden', 'Estado', 'Hora de Voto', 'Local de Votación', 'Barrio', 'Responsable'],
+      ['N°', 'C.I. N°', 'Nombre y Apellido', 'Mesa', 'Orden', 'Estado', 'Hora de Voto', 'Puesto de Control (PC)', 'Local de Votación', 'Barrio', 'Responsable'],
       ...filteredList.map((item, idx) => [
         idx + 1,
         item.elector.cedula,
@@ -113,6 +135,7 @@ export const LiveVotantesMonitorModal: React.FC<LiveVotantesMonitorModalProps> =
         item.elector.orden,
         item.hasVoted ? 'YA VOTÓ (PASÓ POR MESA)' : 'PENDIENTE DE VOTAR',
         item.horaVoto || '—',
+        item.puestoControl || (item.hasVoted ? 'General' : '—'),
         item.elector.localVotacion,
         item.elector.barrio,
         item.elector.responsable || '—',
@@ -129,12 +152,13 @@ export const LiveVotantesMonitorModal: React.FC<LiveVotantesMonitorModalProps> =
       { wch: 8 },
       { wch: 22 },
       { wch: 14 },
+      { wch: 22 },
       { wch: 30 },
       { wch: 20 },
       { wch: 20 },
     ];
     XLSX.utils.book_append_sheet(wb, ws, 'Control_Votantes_DiaD');
-    XLSX.writeFile(wb, `Control_Votantes_Mesa_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    XLSX.writeFile(wb, `Control_Votantes_PC_DiaD_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
   return (

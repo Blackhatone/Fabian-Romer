@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Search, CheckCircle2, Settings, AlertCircle, Vote, PlusCircle, Radio } from 'lucide-react';
+import { Search, CheckCircle2, Settings, AlertCircle, Vote, PlusCircle, Radio, Monitor } from 'lucide-react';
 import { CampaignConfig, ElectorRecord, CollectedCedula } from '../types';
 import { ListaOpcionBadge } from './ListaOpcionBadge';
 import { ElectorDetailModal } from './ElectorDetailModal';
 import { LiveVotantesMonitorModal } from './LiveVotantesMonitorModal';
+import { OperatorPuestoModal } from './OperatorPuestoModal';
 import { normalizeCedula, formatCedulaDisplay } from '../utils/sheetParser';
 
 interface MainPadronViewProps {
@@ -12,8 +13,10 @@ interface MainPadronViewProps {
   collectedCedulas: CollectedCedula[];
   onSearchElector: (cedula: string) => { found: boolean; elector?: ElectorRecord };
   onSaveCedula: (cedula: string) => boolean;
-  onTogglePasoPorMesa: (record: CollectedCedula | ElectorRecord, status: boolean) => void;
+  onTogglePasoPorMesa: (record: CollectedCedula | ElectorRecord, status: boolean, puestoControl?: string) => void;
   onOpenAdmin: () => void;
+  operatorPuesto: string;
+  setOperatorPuesto: (puesto: string) => void;
 }
 
 export const MainPadronView: React.FC<MainPadronViewProps> = ({
@@ -24,11 +27,14 @@ export const MainPadronView: React.FC<MainPadronViewProps> = ({
   onSaveCedula,
   onTogglePasoPorMesa,
   onOpenAdmin,
+  operatorPuesto,
+  setOperatorPuesto,
 }) => {
   const [cedulaInput, setCedulaInput] = useState('');
   const [selectedElector, setSelectedElector] = useState<ElectorRecord | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isLiveMonitorOpen, setIsLiveMonitorOpen] = useState(false);
+  const [isOperatorModalOpen, setIsOperatorModalOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [notFoundCedula, setNotFoundCedula] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
@@ -137,28 +143,50 @@ export const MainPadronView: React.FC<MainPadronViewProps> = ({
               />
             </div>
 
-            {/* Live Day D Monitor Button (Placed underneath Lista 1 Opción 7) */}
-            <button
-              onClick={() => setIsLiveMonitorOpen(true)}
-              className="flex items-center gap-1.5 sm:gap-2 bg-slate-900/90 hover:bg-slate-800 border-2 border-emerald-500/80 px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl shadow-xl backdrop-blur-md cursor-pointer transition-all hover:scale-105 active:scale-95 text-right group"
-              title="Abrir Monitor Día D en Vivo"
-            >
-              <div className="relative">
-                <div className="p-1 rounded-lg bg-emerald-500/20 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-slate-950 transition-colors">
-                  <Vote className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            {/* Action buttons row: PC Selector + Live Día D Monitor */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {/* Operator Active PC Selector Button */}
+              <button
+                onClick={() => setIsOperatorModalOpen(true)}
+                className="flex items-center gap-1.5 sm:gap-2 bg-slate-900/90 hover:bg-slate-800 border-2 border-cyan-500/80 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl shadow-xl backdrop-blur-md cursor-pointer transition-all hover:scale-105 active:scale-95 text-right group"
+                title="Cambiar Puesto de Control (PC)"
+              >
+                <div className="p-1 rounded-lg bg-cyan-500/20 text-cyan-400 group-hover:bg-cyan-500 group-hover:text-slate-950 transition-colors">
+                  <Monitor className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
-                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              </div>
-              <div>
-                <div className="flex items-center justify-end gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  <span className="text-[9px] sm:text-[10px] font-mono text-emerald-300 font-bold uppercase">Día D En Vivo</span>
+                <div className="text-right">
+                  <span className="text-[9px] sm:text-[10px] font-mono text-cyan-300 font-bold uppercase block leading-none">
+                    Puesto
+                  </span>
+                  <span className="text-[11px] sm:text-xs font-black text-white font-mono leading-tight block">
+                    {operatorPuesto}
+                  </span>
                 </div>
-                <div className="text-[11px] sm:text-xs font-black text-white font-mono leading-tight">
-                  <span className="text-amber-300">{votedCount}</span> votaron
+              </button>
+
+              {/* Live Day D Monitor Button */}
+              <button
+                onClick={() => setIsLiveMonitorOpen(true)}
+                className="flex items-center gap-1.5 sm:gap-2 bg-slate-900/90 hover:bg-slate-800 border-2 border-emerald-500/80 px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl shadow-xl backdrop-blur-md cursor-pointer transition-all hover:scale-105 active:scale-95 text-right group"
+                title="Abrir Monitor Día D en Vivo"
+              >
+                <div className="relative">
+                  <div className="p-1 rounded-lg bg-emerald-500/20 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-slate-950 transition-colors">
+                    <Vote className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  </div>
+                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
                 </div>
-              </div>
-            </button>
+                <div>
+                  <div className="flex items-center justify-end gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    <span className="text-[9px] sm:text-[10px] font-mono text-emerald-300 font-bold uppercase">Día D</span>
+                  </div>
+                  <div className="text-[11px] sm:text-xs font-black text-white font-mono leading-tight">
+                    <span className="text-amber-300">{votedCount}</span> votaron
+                  </div>
+                </div>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -335,9 +363,11 @@ export const MainPadronView: React.FC<MainPadronViewProps> = ({
         onNewSearch={handleResetSearch}
         isVoted={isCurrentElectorVoted}
         horaVoto={currentElectorHoraVoto}
+        puestoControl={currentVoteRecord?.puestoControl}
+        currentOperatorPuesto={operatorPuesto}
         onToggleVote={(status) => {
           if (selectedElector) {
-            onTogglePasoPorMesa(selectedElector, status);
+            onTogglePasoPorMesa(selectedElector, status, operatorPuesto);
           }
         }}
       />
@@ -350,6 +380,16 @@ export const MainPadronView: React.FC<MainPadronViewProps> = ({
         electors={electors}
         collectedCedulas={collectedCedulas}
         onTogglePasoPorMesa={onTogglePasoPorMesa}
+        operatorPuesto={operatorPuesto}
+        onOpenPuestoModal={() => setIsOperatorModalOpen(true)}
+      />
+
+      {/* Operator PC Selection Modal */}
+      <OperatorPuestoModal
+        isOpen={isOperatorModalOpen}
+        onClose={() => setIsOperatorModalOpen(false)}
+        currentPuesto={operatorPuesto}
+        onSavePuesto={setOperatorPuesto}
       />
 
     </div>

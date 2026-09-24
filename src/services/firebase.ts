@@ -14,7 +14,7 @@ import {
   getDocFromServer,
   Firestore
 } from 'firebase/firestore';
-import { CollectedCedula, CampaignConfig, ElectorRecord } from '../types';
+import { CollectedCedula, CampaignConfig, ElectorRecord, AdminSecurityConfig } from '../types';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { compressBase64Image } from '../utils/imageCompressor';
 
@@ -39,7 +39,90 @@ const CEDULAS_COLLECTION = 'cedulas_recopiladas';
 const CONFIG_COLLECTION = 'campaign_config';
 const CONFIG_DOC_ID = 'current_campaign';
 const PADRON_COLLECTION = 'padron_electores';
+const SECURITY_COLLECTION = 'admin_security';
+const SECURITY_DOC_ID = 'auth_config';
 const ELECTORS_CHUNK_SIZE = 100;
+
+// Default SHA-256 hash for password '2027'
+export const DEFAULT_ADMIN_HASH = '5313e5bf17148de844ff74be3663d47c6e361ca469b30a36337701233c89a15e';
+
+/**
+ * Native cryptographic SHA-256 hash using Web Crypto API
+ */
+export async function hashPassword(plainText: string): Promise<string> {
+  const msgUint8 = new TextEncoder().encode(plainText);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Fetch or bootstrap admin security settings from Firestore
+ */
+export async function getAdminSecurityConfig(): Promise<AdminSecurityConfig> {
+  try {
+    const docRef = doc(db, SECURITY_COLLECTION, SECURITY_DOC_ID);
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      return snap.data() as AdminSecurityConfig;
+    }
+    // Bootstrap initial config with default 2027 hash in Cloud Firestore
+    const initialConfig: AdminSecurityConfig = {
+      passwordHash: DEFAULT_ADMIN_HASH,
+      updatedAt: new Date().toISOString(),
+      updatedBy: 'system_init',
+    };
+    await setDoc(docRef, initialConfig);
+    return initialConfig;
+  } catch (error) {
+    console.warn('Could not read admin security config from Cloud, fallback to default:', error);
+    return {
+      passwordHash: DEFAULT_ADMIN_HASH,
+    };
+  }
+}
+
+/**
+ * Verify an entered admin password against the database hash
+ */
+export async function verifyAdminPassword(plainText: string): Promise<boolean> {
+  try {
+    const clean = plainText.trim();
+    if (!clean) return false;
+    const inputHash = await hashPassword(clean);
+    const config = await getAdminSecurityConfig();
+    return inputHash.toLowerCase() === config.passwordHash.toLowerCase();
+  } catch (err) {
+    console.error('Error verifying admin password:', err);
+    const inputHash = await hashPassword(plainText.trim());
+    return inputHash.toLowerCase() === DEFAULT_ADMIN_HASH.toLowerCase();
+  }
+}
+
+/**
+ * Update the administrator password in Cloud Firestore with SHA-256
+ */
+export async function updateAdminPasswordInCloud(
+  newPassword: string
+): Promise<{ success: boolean; message?: string }> {
+  try {
+    const clean = newPassword.trim();
+    if (clean.length < 4) {
+      return { success: false, message: 'La nueva contraseña debe tener al menos 4 caracteres.' };
+    }
+    const newHash = await hashPassword(clean);
+    const docRef = doc(db, SECURITY_COLLECTION, SECURITY_DOC_ID);
+    await setDoc(docRef, {
+      passwordHash: newHash,
+      updatedAt: new Date().toISOString(),
+      updatedBy: 'admin_panel',
+    });
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating admin password in Cloud Firestore:', error);
+    return { success: false, message: 'No se pudo guardar la contraseña en la nube. Verifica la conexión.' };
+  }
+}
 
 // Test connection on boot
 export async function testConnection(): Promise<boolean> {
@@ -321,6 +404,7 @@ export async function saveCollectedCedulaToCloud(record: CollectedCedula): Promi
       observaciones: record.observaciones || '',
       pasoPorMesa: record.pasoPorMesa === true,
       horaVoto: record.horaVoto || '',
+      puestoControl: record.puestoControl || '',
       registradoPor: record.registradoPor || '',
       createdAt: record.createdAt || new Date().toISOString(),
     }, { merge: true });
@@ -335,13 +419,15 @@ export async function saveCollectedCedulaToCloud(record: CollectedCedula): Promi
 export async function togglePasoPorMesaInCloud(
   record: CollectedCedula,
   pasoPorMesa: boolean,
-  mesaOperador?: string
+  mesaOperador?: string,
+  puestoControl?: string
 ): Promise<void> {
   try {
     const cleanId = String(record.cedula).replace(/\D/g, '') || record.id;
     const docRef = doc(db, CEDULAS_COLLECTION, cleanId);
     const now = new Date();
     const timeFormatted = now.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' });
+    const pc = puestoControl || record.puestoControl || '';
 
     await setDoc(docRef, {
       cedula: String(record.cedula),
@@ -355,7 +441,8 @@ export async function togglePasoPorMesaInCloud(
       observaciones: record.observaciones || '',
       pasoPorMesa,
       horaVoto: pasoPorMesa ? `${timeFormatted} hs` : '',
-      registradoPor: mesaOperador || record.registradoPor || `Mesa ${record.mesa || 'General'}`,
+      puestoControl: pc,
+      registradoPor: mesaOperador || record.registradoPor || (pc ? `${pc}` : `Mesa ${record.mesa || 'General'}`),
       createdAt: record.createdAt || now.toISOString(),
     }, { merge: true });
   } catch (error) {
@@ -391,6 +478,7 @@ export function subscribeToCollectedCedulas(
             observaciones: data.observaciones || undefined,
             pasoPorMesa: data.pasoPorMesa === true,
             horaVoto: data.horaVoto || undefined,
+            puestoControl: data.puestoControl || undefined,
             registradoPor: data.registradoPor || undefined,
             createdAt: data.createdAt,
           });

@@ -24,6 +24,8 @@ interface ElectorDetailModalProps {
   onNewSearch: () => void;
   isVoted?: boolean;
   horaVoto?: string;
+  puestoControl?: string;
+  currentOperatorPuesto?: string;
   onToggleVote?: (status: boolean) => void;
 }
 
@@ -35,6 +37,8 @@ export const ElectorDetailModal: React.FC<ElectorDetailModalProps> = ({
   onNewSearch,
   isVoted = false,
   horaVoto,
+  puestoControl,
+  currentOperatorPuesto,
   onToggleVote,
 }) => {
   const [copied, setCopied] = useState(false);
@@ -141,8 +145,13 @@ export const ElectorDetailModal: React.FC<ElectorDetailModalProps> = ({
                     ¡Ya pasó por la mesa! (Ya votó)
                   </h4>
                   {horaVoto && (
-                    <p className="text-xs text-slate-300 font-mono mt-0.5">
-                      Hora de registro: <strong className="text-amber-300">{horaVoto}</strong>
+                    <p className="text-xs text-slate-300 font-mono mt-0.5 flex flex-wrap items-center gap-1.5">
+                      <span>Hora: <strong className="text-amber-300">{horaVoto}</strong></span>
+                      {puestoControl && (
+                        <span className="bg-cyan-950/80 text-cyan-300 border border-cyan-700/60 px-2 py-0.5 rounded-md font-bold text-[11px]">
+                          {puestoControl}
+                        </span>
+                      )}
                     </p>
                   )}
                 </div>
@@ -171,6 +180,11 @@ export const ElectorDetailModal: React.FC<ElectorDetailModalProps> = ({
                   <h4 className="text-slate-200 text-sm sm:text-base font-bold">
                     Aún no figura como votado
                   </h4>
+                  {currentOperatorPuesto && (
+                    <span className="text-[11px] text-emerald-400 font-mono">
+                      Operando desde: <strong>{currentOperatorPuesto}</strong>
+                    </span>
+                  )}
                 </div>
               </div>
 
