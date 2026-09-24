@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isValidCedulaDoc(data) {
+      return data.keys().hasAll(['cedula', 'createdAt'])
+        && data.cedula is string
+        && data.cedula.size() > 0
+        && data.cedula.size() <= 20
+        && data.createdAt is string
+        && (!('nombre' in data) || data.nombre is string)
+        && (!('barrio' in data) || data.barrio is string)
+        && (!('localVotacion' in data) || data.localVotacion is string)
+        && (!('mesa' in data) || data.mesa is string)
+        && (!('orden' in data) || data.orden is string)
+        && (!('responsable' in data) || data.responsable is string)
+        && (!('telefono' in data) || data.telefono is string)
+        && (!('observaciones' in data) || data.observaciones is string)
+        && (!('pasoPorMesa' in data) || data.pasoPorMesa is bool)
+        && (!('horaVoto' in data) || data.horaVoto is string)
+        && (!('registradoPor' in data) || data.registradoPor is string);
+    }
+
+    match /cedulas_recopiladas/{docId} {
+      allow read: if true;
+      allow create: if isValidCedulaDoc(request.resource.data);
+      allow update: if isValidCedulaDoc(request.resource.data);
+      allow delete: if true;
+    }
+
+    match /campaign_config/{docId} {
+      allow read: if true;
+      allow write: if true;
+    }
+  }
+}

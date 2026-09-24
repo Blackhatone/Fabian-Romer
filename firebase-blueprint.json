@@ -1,0 +1,39 @@
+{
+  "entities": {
+    "collected_cedulas": {
+      "collection": "cedulas_recopiladas",
+      "description": "Cédulas consultadas y registradas por los electores y el equipo de campaña",
+      "fields": {
+        "cedula": { "type": "string", "description": "Número de cédula de identidad" },
+        "nombre": { "type": "string", "description": "Nombre y apellido del elector", "optional": true },
+        "barrio": { "type": "string", "description": "Barrio del elector", "optional": true },
+        "localVotacion": { "type": "string", "description": "Local de votación asignado", "optional": true },
+        "mesa": { "type": "string", "description": "Número de mesa", "optional": true },
+        "orden": { "type": "string", "description": "Número de orden", "optional": true },
+        "responsable": { "type": "string", "description": "Responsable de mesa o zona", "optional": true },
+        "telefono": { "type": "string", "description": "Teléfono de contacto", "optional": true },
+        "observaciones": { "type": "string", "description": "Notas u observaciones", "optional": true },
+        "pasoPorMesa": { "type": "boolean", "description": "Indica si el elector ya votó o pasó por la mesa", "optional": true },
+        "horaVoto": { "type": "string", "description": "Hora en que pasó por la mesa", "optional": true },
+        "registradoPor": { "type": "string", "description": "Mesa u operador que registró el voto", "optional": true },
+        "createdAt": { "type": "string", "description": "Fecha y hora ISO del registro" }
+      }
+    },
+    "campaign_config": {
+      "collection": "campaign_config",
+      "description": "Configuración visual e institucional de la campaña",
+      "fields": {
+        "candidateName": { "type": "string" },
+        "candidateRole": { "type": "string" },
+        "listNumber": { "type": "string" },
+        "optionNumber": { "type": "string" },
+        "campaignSlogan": { "type": "string" },
+        "candidatePhotoUrl": { "type": "string" },
+        "backgroundUrl": { "type": "string" },
+        "headerLogoUrl": { "type": "string", "optional": true },
+        "footerLogoUrl": { "type": "string", "optional": true },
+        "updatedAt": { "type": "string" }
+      }
+    }
+  }
+}

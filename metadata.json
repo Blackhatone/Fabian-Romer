@@ -1,0 +1,6 @@
+{
+  "name": "Consulta de Padrón Electoral",
+  "description": "Sistema electoral y consulta de padrón en tiempo real para control de mesas y votantes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
