@@ -99,61 +99,36 @@ export const MainPadronView: React.FC<MainPadronViewProps> = ({
       <div className="absolute inset-0 bg-white/20 backdrop-blur-[2px]" />
 
       {/* MAIN SCREEN CONTAINER */}
-      <div className="relative z-20 flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex flex-col justify-between items-center">
+      <div className="relative z-20 flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 flex flex-col justify-between items-center">
 
         {/* TOP BRANDING ROW */}
-        <div className="w-full flex items-start justify-between gap-4">
+        <div className="w-full flex items-start justify-between gap-2 sm:gap-4">
           
           {/* Top-Left Banner: Candidate Logo Image or High-Contrast Badge */}
-          <div className="flex flex-col items-start space-y-1">
+          <div className="flex flex-col items-start space-y-1 max-w-[55%] sm:max-w-none">
             {campaign.headerLogoUrl ? (
               <img
                 src={campaign.headerLogoUrl}
                 alt={campaign.candidateName}
                 referrerPolicy="no-referrer"
-                className="max-h-24 sm:max-h-32 md:max-h-36 w-auto object-contain drop-shadow-2xl transition-all"
+                className="max-h-28 sm:max-h-36 md:max-h-40 w-auto object-contain drop-shadow-2xl transition-all"
               />
             ) : (
-              <div className="bg-slate-900/90 border-2 border-emerald-600 px-6 py-3 rounded-2xl shadow-2xl backdrop-blur-md flex flex-col items-start border-b-4 border-b-emerald-500">
-                <div className="text-3xl sm:text-4xl font-black tracking-tight text-white font-sans drop-shadow-md flex items-center gap-2">
+              <div className="bg-slate-900/90 border-2 border-emerald-600 px-4 sm:px-6 py-2 sm:py-3 rounded-2xl shadow-2xl backdrop-blur-md flex flex-col items-start border-b-4 border-b-emerald-500">
+                <div className="text-2xl sm:text-4xl font-black tracking-tight text-white font-sans drop-shadow-md flex items-center gap-1.5 sm:gap-2">
                   <span className="text-amber-400 font-extrabold">{campaign.candidateName.split(' ')[0]}</span>
                   <span className="text-slate-100">{campaign.candidateName.split(' ')[1]}</span>
                 </div>
-                <div className="bg-emerald-600 text-white text-xs sm:text-sm font-black tracking-widest px-3.5 py-1 rounded-md uppercase mt-1 shadow-sm">
+                <div className="bg-emerald-600 text-white text-[10px] sm:text-sm font-black tracking-widest px-2.5 sm:px-3.5 py-0.5 sm:py-1 rounded-md uppercase mt-1 shadow-sm">
                   {campaign.candidateRole}
                 </div>
               </div>
             )}
           </div>
 
-          {/* Top-Right Badges: Monitor Día D pill + LISTA 1 OPCION 7 */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* Live Day D Monitor Button (Accessible to all delegates) */}
-            <button
-              onClick={() => setIsLiveMonitorOpen(true)}
-              className="flex items-center gap-2 bg-slate-900/90 hover:bg-slate-800 border-2 border-emerald-500/80 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-2xl shadow-xl backdrop-blur-md cursor-pointer transition-all hover:scale-105 active:scale-95 text-left group"
-              title="Abrir Monitor Día D en Vivo"
-            >
-              <div className="relative">
-                <div className="p-1.5 rounded-xl bg-emerald-500/20 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-slate-950 transition-colors">
-                  <Vote className="w-4 h-4 sm:w-5 sm:h-5" />
-                </div>
-                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-              </div>
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-bold hidden sm:inline">
-                    Día D
-                  </span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  <span className="text-[10px] font-mono text-emerald-300">En Vivo</span>
-                </div>
-                <div className="text-xs sm:text-sm font-black text-white font-mono">
-                  <span className="text-amber-300">{votedCount}</span> votaron
-                </div>
-              </div>
-            </button>
-
+          {/* Top-Right Badges: LISTA 1 OPCION 7 on top, Monitor Día D button below it */}
+          <div className="flex flex-col items-end gap-1.5 sm:gap-2">
+            {/* LISTA 1 - OPCIÓN 7 */}
             <div className="transform hover:scale-105 transition-transform">
               <ListaOpcionBadge
                 listNumber={campaign.listNumber}
@@ -161,19 +136,42 @@ export const MainPadronView: React.FC<MainPadronViewProps> = ({
                 size="md"
               />
             </div>
+
+            {/* Live Day D Monitor Button (Placed underneath Lista 1 Opción 7) */}
+            <button
+              onClick={() => setIsLiveMonitorOpen(true)}
+              className="flex items-center gap-1.5 sm:gap-2 bg-slate-900/90 hover:bg-slate-800 border-2 border-emerald-500/80 px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl shadow-xl backdrop-blur-md cursor-pointer transition-all hover:scale-105 active:scale-95 text-right group"
+              title="Abrir Monitor Día D en Vivo"
+            >
+              <div className="relative">
+                <div className="p-1 rounded-lg bg-emerald-500/20 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-slate-950 transition-colors">
+                  <Vote className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                </div>
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              </div>
+              <div>
+                <div className="flex items-center justify-end gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  <span className="text-[9px] sm:text-[10px] font-mono text-emerald-300 font-bold uppercase">Día D En Vivo</span>
+                </div>
+                <div className="text-[11px] sm:text-xs font-black text-white font-mono leading-tight">
+                  <span className="text-amber-300">{votedCount}</span> votaron
+                </div>
+              </div>
+            </button>
           </div>
         </div>
 
         {/* MIDDLE CONTENT AREA: CANDIDATE + FROSTED GLASS RECOPILACIÓN CARD */}
         <div className="w-full flex-1 flex flex-col items-center justify-center py-2 sm:py-4 my-auto">
 
-          {/* MOBILE CANDIDATE PORTRAIT */}
-          <div className="flex md:hidden flex-col items-center -mb-5 z-30 relative">
+          {/* MOBILE CANDIDATE PORTRAIT (Significantly enlarged on mobile) */}
+          <div className="flex md:hidden flex-col items-center -mb-8 z-30 relative pointer-events-none">
             <img
               src={campaign.candidatePhotoUrl}
               alt={campaign.candidateName}
               referrerPolicy="no-referrer"
-              className="w-52 h-52 sm:w-64 sm:h-64 object-contain object-bottom drop-shadow-2xl"
+              className="w-72 h-72 xs:w-80 xs:h-80 sm:w-96 sm:h-96 max-h-[380px] object-contain object-bottom drop-shadow-2xl transition-all"
             />
           </div>
 
@@ -191,7 +189,7 @@ export const MainPadronView: React.FC<MainPadronViewProps> = ({
 
             {/* FROSTED GLASS CARD (RIGHT/CENTER - 7 COLS ON DESKTOP, FULL WIDTH ON MOBILE) */}
             <div className="col-span-1 md:col-span-7 flex justify-start w-full md:pl-1 lg:pl-2">
-              <div className="w-full max-w-xl sm:max-w-2xl bg-white/20 backdrop-blur-xl rounded-3xl border-2 border-white/50 p-7 sm:p-10 shadow-2xl relative overflow-hidden transition-all pt-9 md:pt-10">
+              <div className="w-full max-w-xl sm:max-w-2xl bg-white/20 backdrop-blur-xl rounded-3xl border-2 border-white/50 p-6 sm:p-10 shadow-2xl relative overflow-hidden transition-all pt-10 md:pt-10">
                 
                 {/* Form Title Label */}
                 <div className="flex items-center justify-between mb-3.5">
