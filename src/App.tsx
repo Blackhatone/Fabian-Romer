@@ -176,10 +176,46 @@ export default function App() {
     });
   };
 
-  const handleUpdateElector = (updated: ElectorRecord) => {
+  const handleUpdateElector = (updated: ElectorRecord, originalCedula?: string) => {
+    const cleanOriginal = normalizeCedula(originalCedula || updated.cedula);
+    const cleanNew = normalizeCedula(updated.cedula);
+
     setElectors((prev) => {
-      const next = prev.map((e) => (e.id === updated.id ? updated : e));
+      const next = prev.map((e) => {
+        const eCed = normalizeCedula(e.cedula);
+        if (eCed === cleanOriginal || (e.id && updated.id && e.id === updated.id)) {
+          return {
+            ...e,
+            ...updated,
+            cedula: cleanNew,
+            nombreApellido: updated.nombreApellido.trim().toUpperCase(),
+          };
+        }
+        return e;
+      });
       saveElectorsToCloud(next);
+      return next;
+    });
+
+    // Also update any collected cedula record if exists
+    setCollectedCedulas((prev) => {
+      const next = prev.map((c) => {
+        if (normalizeCedula(c.cedula) === cleanOriginal) {
+          const updatedRecord: CollectedCedula = {
+            ...c,
+            cedula: cleanNew,
+            nombre: updated.nombreApellido.trim().toUpperCase(),
+            barrio: updated.barrio,
+            localVotacion: updated.localVotacion,
+            mesa: updated.mesa,
+            orden: updated.orden,
+            responsable: updated.responsable,
+          };
+          saveCollectedCedulaToCloud(updatedRecord);
+          return updatedRecord;
+        }
+        return c;
+      });
       return next;
     });
   };
@@ -411,6 +447,7 @@ export default function App() {
         onSearchElector={handleSearchElector}
         onSaveCedula={handleSaveCedula}
         onSaveFullElector={handleCreateFullElector}
+        onUpdateElector={handleUpdateElector}
         onTogglePasoPorMesa={handleTogglePasoPorMesa}
         onOpenAdmin={handleOpenAdminGate}
         operatorPuesto={operatorPuesto}

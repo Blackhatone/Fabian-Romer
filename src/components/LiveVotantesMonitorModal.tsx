@@ -17,7 +17,8 @@ import {
   Lock,
   KeyRound,
   ShieldAlert,
-  Loader2
+  Loader2,
+  Pencil
 } from 'lucide-react';
 import { CollectedCedula, ElectorRecord, CampaignConfig } from '../types';
 import { formatCedulaDisplay, normalizeCedula } from '../utils/sheetParser';
@@ -35,6 +36,7 @@ interface LiveVotantesMonitorModalProps {
   onOpenPuestoModal?: () => void;
   isAdminAuthenticated?: boolean;
   setIsAdminAuthenticated?: (val: boolean) => void;
+  onSelectElector?: (elector: ElectorRecord) => void;
 }
 
 export const LiveVotantesMonitorModal: React.FC<LiveVotantesMonitorModalProps> = ({
@@ -48,6 +50,7 @@ export const LiveVotantesMonitorModal: React.FC<LiveVotantesMonitorModalProps> =
   onOpenPuestoModal,
   isAdminAuthenticated = false,
   setIsAdminAuthenticated,
+  onSelectElector,
 }) => {
   const [filterType, setFilterType] = useState<'voted' | 'pending' | 'all'>('voted');
   const [selectedMesa, setSelectedMesa] = useState<string>('all');
@@ -475,7 +478,22 @@ export const LiveVotantesMonitorModal: React.FC<LiveVotantesMonitorModalProps> =
 
                         {/* Nombre */}
                         <td className="py-2.5 px-3 font-sans font-bold text-white">
-                          {item.elector.nombreApellido}
+                          {onSelectElector ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onSelectElector(item.elector);
+                                onClose();
+                              }}
+                              className="text-left text-white hover:text-amber-300 transition-colors flex items-center gap-1.5 group cursor-pointer"
+                              title="Ver ficha y modificar datos del elector"
+                            >
+                              <span>{item.elector.nombreApellido}</span>
+                              <Pencil className="w-3 h-3 text-slate-500 group-hover:text-amber-400 opacity-60 group-hover:opacity-100 transition-opacity" />
+                            </button>
+                          ) : (
+                            item.elector.nombreApellido
+                          )}
                         </td>
 
                         {/* Mesa */}

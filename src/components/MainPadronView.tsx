@@ -23,6 +23,7 @@ interface MainPadronViewProps {
       observaciones?: string;
     }
   ) => ElectorRecord;
+  onUpdateElector: (updated: ElectorRecord, originalCedula?: string) => void;
   onTogglePasoPorMesa: (record: CollectedCedula | ElectorRecord, status: boolean, puestoControl?: string) => void;
   onOpenAdmin: () => void;
   operatorPuesto: string;
@@ -38,6 +39,7 @@ export const MainPadronView: React.FC<MainPadronViewProps> = ({
   onSearchElector,
   onSaveCedula,
   onSaveFullElector,
+  onUpdateElector,
   onTogglePasoPorMesa,
   onOpenAdmin,
   operatorPuesto,
@@ -269,7 +271,7 @@ export const MainPadronView: React.FC<MainPadronViewProps> = ({
                 </div>
 
                 {/* Consultation Search Form */}
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-3.5">
                   <div className="relative">
                     <input
                       type="text"
@@ -420,6 +422,11 @@ export const MainPadronView: React.FC<MainPadronViewProps> = ({
         horaVoto={currentElectorHoraVoto}
         puestoControl={currentVoteRecord?.puestoControl}
         currentOperatorPuesto={operatorPuesto}
+        existingElectors={electors}
+        onUpdateElector={(originalCedula, updatedRecord) => {
+          onUpdateElector(updatedRecord, originalCedula);
+          setSelectedElector(updatedRecord);
+        }}
         onToggleVote={(status) => {
           if (selectedElector) {
             onTogglePasoPorMesa(selectedElector, status, operatorPuesto);
@@ -439,6 +446,10 @@ export const MainPadronView: React.FC<MainPadronViewProps> = ({
         onOpenPuestoModal={() => setIsOperatorModalOpen(true)}
         isAdminAuthenticated={isAdminAuthenticated}
         setIsAdminAuthenticated={setIsAdminAuthenticated}
+        onSelectElector={(elector) => {
+          setSelectedElector(elector);
+          setIsDetailModalOpen(true);
+        }}
       />
 
       {/* Operator PC Selection Modal */}
