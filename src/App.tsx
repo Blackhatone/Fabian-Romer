@@ -66,6 +66,9 @@ export default function App() {
   // Hidden Admin & Password Gate State
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
+    return sessionStorage.getItem('admin_authenticated_session') === 'true';
+  });
   const [operatorPuesto, setOperatorPuesto] = useState<string>(() => {
     return localStorage.getItem('operador_puesto_control') || 'PC 1';
   });
@@ -227,6 +230,65 @@ export default function App() {
     return true;
   };
 
+  // Add complete elector with all details (from search or modal)
+  const handleCreateFullElector = (
+    newElector: ElectorRecord,
+    options: {
+      markAsVoted: boolean;
+      puestoControl?: string;
+      telefono?: string;
+      observaciones?: string;
+    }
+  ): ElectorRecord => {
+    const cleanCedula = normalizeCedula(newElector.cedula);
+    const electorFormatted: ElectorRecord = {
+      ...newElector,
+      cedula: cleanCedula,
+      nombreApellido: newElector.nombreApellido.trim().toUpperCase(),
+    };
+
+    // 1. Update electors in local state and save chunked to Firestore
+    setElectors((prev) => {
+      const updated = [
+        electorFormatted,
+        ...prev.filter((e) => normalizeCedula(e.cedula) !== cleanCedula),
+      ];
+      saveElectorsToCloud(updated);
+      return updated;
+    });
+
+    // 2. Register in collected cedulas (votos / recopilación)
+    const now = new Date();
+    const timeFormatted = now.toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' });
+    const activePC = options.puestoControl || operatorPuesto || 'PC 1';
+
+    const newRecord: CollectedCedula = {
+      id: `ced-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      cedula: cleanCedula,
+      nombre: electorFormatted.nombreApellido,
+      telefono: options.telefono,
+      barrio: electorFormatted.barrio,
+      localVotacion: electorFormatted.localVotacion,
+      mesa: electorFormatted.mesa,
+      orden: electorFormatted.orden,
+      responsable: electorFormatted.responsable,
+      observaciones: options.observaciones || `Registrado con datos completos (${activePC})`,
+      pasoPorMesa: options.markAsVoted,
+      horaVoto: options.markAsVoted ? `${timeFormatted} hs` : undefined,
+      puestoControl: options.markAsVoted ? activePC : undefined,
+      registradoPor: activePC,
+      createdAt: now.toISOString(),
+    };
+
+    setCollectedCedulas((prev) => [
+      newRecord,
+      ...prev.filter((c) => normalizeCedula(c.cedula) !== cleanCedula),
+    ]);
+    saveCollectedCedulaToCloud(newRecord);
+
+    return electorFormatted;
+  };
+
   // Manual Add Cedula from Admin
   const handleAddManualCedula = (
     cedula: string,
@@ -334,6 +396,8 @@ export default function App() {
 
   const handlePasswordSuccess = () => {
     setIsPasswordModalOpen(false);
+    setIsAdminAuthenticated(true);
+    sessionStorage.setItem('admin_authenticated_session', 'true');
     setIsAdminOpen(true);
   };
 
@@ -346,10 +410,13 @@ export default function App() {
         collectedCedulas={collectedCedulas}
         onSearchElector={handleSearchElector}
         onSaveCedula={handleSaveCedula}
+        onSaveFullElector={handleCreateFullElector}
         onTogglePasoPorMesa={handleTogglePasoPorMesa}
         onOpenAdmin={handleOpenAdminGate}
         operatorPuesto={operatorPuesto}
         setOperatorPuesto={handleSetOperatorPuesto}
+        isAdminAuthenticated={isAdminAuthenticated}
+        setIsAdminAuthenticated={setIsAdminAuthenticated}
       />
 
       {/* PASSWORD PROTECTION GATE (SEALED ACCESS WITH PIN 2027) */}

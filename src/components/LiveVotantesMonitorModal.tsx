@@ -13,10 +13,15 @@ import {
   MapPin,
   TrendingUp,
   UserCheck,
-  Monitor
+  Monitor,
+  Lock,
+  KeyRound,
+  ShieldAlert,
+  Loader2
 } from 'lucide-react';
 import { CollectedCedula, ElectorRecord, CampaignConfig } from '../types';
 import { formatCedulaDisplay, normalizeCedula } from '../utils/sheetParser';
+import { verifyAdminPassword } from '../services/firebase';
 import * as XLSX from 'xlsx';
 
 interface LiveVotantesMonitorModalProps {
@@ -28,6 +33,8 @@ interface LiveVotantesMonitorModalProps {
   onTogglePasoPorMesa: (record: CollectedCedula | ElectorRecord, status: boolean, puestoControl?: string) => void;
   operatorPuesto?: string;
   onOpenPuestoModal?: () => void;
+  isAdminAuthenticated?: boolean;
+  setIsAdminAuthenticated?: (val: boolean) => void;
 }
 
 export const LiveVotantesMonitorModal: React.FC<LiveVotantesMonitorModalProps> = ({
@@ -39,11 +46,20 @@ export const LiveVotantesMonitorModal: React.FC<LiveVotantesMonitorModalProps> =
   onTogglePasoPorMesa,
   operatorPuesto,
   onOpenPuestoModal,
+  isAdminAuthenticated = false,
+  setIsAdminAuthenticated,
 }) => {
   const [filterType, setFilterType] = useState<'voted' | 'pending' | 'all'>('voted');
   const [selectedMesa, setSelectedMesa] = useState<string>('all');
   const [selectedPC, setSelectedPC] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Admin download gate state
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [adminPasswordInput, setAdminPasswordInput] = useState('');
+  const [authError, setAuthError] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [authSuccessMsg, setAuthSuccessMsg] = useState('');
 
   if (!isOpen) return null;
 
@@ -123,8 +139,8 @@ export const LiveVotantesMonitorModal: React.FC<LiveVotantesMonitorModalProps> =
     return true;
   });
 
-  // Export filtered voters to Excel
-  const handleExportExcel = () => {
+  // Export filtered voters to Excel (Protected: Only Admins can download)
+  const triggerDownload = () => {
     const wsData = [
       ['N°', 'C.I. N°', 'Nombre y Apellido', 'Mesa', 'Orden', 'Estado', 'Hora de Voto', 'Puesto de Control (PC)', 'Local de Votación', 'Barrio', 'Responsable'],
       ...filteredList.map((item, idx) => [
@@ -159,6 +175,46 @@ export const LiveVotantesMonitorModal: React.FC<LiveVotantesMonitorModalProps> =
     ];
     XLSX.utils.book_append_sheet(wb, ws, 'Control_Votantes_DiaD');
     XLSX.writeFile(wb, `Control_Votantes_PC_DiaD_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
+  const handleExportClick = () => {
+    if (isAdminAuthenticated) {
+      triggerDownload();
+      setAuthSuccessMsg('Descarga de Excel autorizada y completada.');
+      setTimeout(() => setAuthSuccessMsg(''), 4000);
+    } else {
+      setAdminPasswordInput('');
+      setAuthError(false);
+      setIsAuthModalOpen(true);
+    }
+  };
+
+  const handleVerifyAndDownload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminPasswordInput.trim() || isVerifying) return;
+
+    setIsVerifying(true);
+    setAuthError(false);
+    try {
+      const valid = await verifyAdminPassword(adminPasswordInput.trim());
+      if (valid) {
+        if (setIsAdminAuthenticated) {
+          setIsAdminAuthenticated(true);
+        }
+        sessionStorage.setItem('admin_authenticated_session', 'true');
+        setIsAuthModalOpen(false);
+        triggerDownload();
+        setAuthSuccessMsg('Descarga de estadísticas autorizada con éxito.');
+        setTimeout(() => setAuthSuccessMsg(''), 4500);
+      } else {
+        setAuthError(true);
+      }
+    } catch (err) {
+      console.error(err);
+      setAuthError(true);
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   return (
@@ -322,16 +378,38 @@ export const LiveVotantesMonitorModal: React.FC<LiveVotantesMonitorModalProps> =
               />
             </div>
 
-            {/* Export Excel Button */}
+            {/* Export Excel Button (Protected for Admin) */}
             <button
-              onClick={handleExportExcel}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-mono font-bold cursor-pointer transition-colors"
-              title="Descargar lista filtrada en Excel"
+              onClick={handleExportClick}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-mono font-bold cursor-pointer transition-colors ${
+                isAdminAuthenticated
+                  ? 'bg-emerald-950/70 hover:bg-emerald-900 border-emerald-600/70 text-emerald-300'
+                  : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200'
+              }`}
+              title={
+                isAdminAuthenticated
+                  ? 'Descargar reporte completo en Excel'
+                  : 'Descarga protegida: Solo Administradores'
+              }
             >
-              <Download className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Excel</span>
+              {isAdminAuthenticated ? (
+                <>
+                  <Download className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Excel</span>
+                </>
+              ) : (
+                <>
+                  <Lock className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Excel (Admin)</span>
+                </>
+              )}
             </button>
 
+            {authSuccessMsg && (
+              <span className="text-[11px] text-emerald-400 font-mono font-bold animate-fadeIn">
+                {authSuccessMsg}
+              </span>
+            )}
           </div>
 
         </div>
@@ -473,6 +551,88 @@ export const LiveVotantesMonitorModal: React.FC<LiveVotantesMonitorModalProps> =
         </div>
 
       </div>
+
+      {/* Admin Download Verification Modal */}
+      {isAuthModalOpen && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-fadeIn">
+          <div className="w-full max-w-sm bg-slate-900 border-2 border-amber-500/80 rounded-3xl p-5 shadow-2xl text-white space-y-4">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-2xl bg-amber-500/20 text-amber-400">
+                  <Lock className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="font-black text-sm text-white">Descarga Protegida</h4>
+                  <p className="text-[11px] text-amber-300 font-mono">Solo Administradores</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsAuthModalOpen(false)}
+                className="p-1 rounded-xl text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Para descargar las estadísticas y el listado de electores en Excel / LibreOffice, ingresa la clave de Administrador:
+            </p>
+
+            <form onSubmit={handleVerifyAndDownload} className="space-y-3">
+              <div className="relative">
+                <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="password"
+                  value={adminPasswordInput}
+                  onChange={(e) => {
+                    setAdminPasswordInput(e.target.value);
+                    if (authError) setAuthError(false);
+                  }}
+                  placeholder="Contraseña de Administrador"
+                  autoFocus
+                  required
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-white font-mono text-sm focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              {authError && (
+                <div className="flex items-center gap-1.5 text-xs text-rose-400 font-bold bg-rose-950/60 p-2 rounded-xl border border-rose-800">
+                  <ShieldAlert className="w-4 h-4 shrink-0" />
+                  <span>Contraseña incorrecta. Acceso no autorizado.</span>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsAuthModalOpen(false)}
+                  className="flex-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs cursor-pointer transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isVerifying}
+                  className="flex-1 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:bg-amber-800/60 text-slate-950 font-black text-xs shadow-lg cursor-pointer transition-colors flex items-center justify-center gap-1.5"
+                >
+                  {isVerifying ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Verificando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Descargar Excel</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

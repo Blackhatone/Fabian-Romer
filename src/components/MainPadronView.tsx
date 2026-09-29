@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Search, CheckCircle2, Settings, AlertCircle, Vote, PlusCircle, Radio, Monitor } from 'lucide-react';
+import { Search, CheckCircle2, Settings, AlertCircle, Vote, PlusCircle, Radio, Monitor, UserPlus } from 'lucide-react';
 import { CampaignConfig, ElectorRecord, CollectedCedula } from '../types';
 import { ListaOpcionBadge } from './ListaOpcionBadge';
 import { ElectorDetailModal } from './ElectorDetailModal';
 import { LiveVotantesMonitorModal } from './LiveVotantesMonitorModal';
 import { OperatorPuestoModal } from './OperatorPuestoModal';
+import { AddElectorModal } from './AddElectorModal';
 import { normalizeCedula, formatCedulaDisplay } from '../utils/sheetParser';
 
 interface MainPadronViewProps {
@@ -13,10 +14,21 @@ interface MainPadronViewProps {
   collectedCedulas: CollectedCedula[];
   onSearchElector: (cedula: string) => { found: boolean; elector?: ElectorRecord };
   onSaveCedula: (cedula: string) => boolean;
+  onSaveFullElector: (
+    elector: ElectorRecord,
+    options: {
+      markAsVoted: boolean;
+      puestoControl?: string;
+      telefono?: string;
+      observaciones?: string;
+    }
+  ) => ElectorRecord;
   onTogglePasoPorMesa: (record: CollectedCedula | ElectorRecord, status: boolean, puestoControl?: string) => void;
   onOpenAdmin: () => void;
   operatorPuesto: string;
   setOperatorPuesto: (puesto: string) => void;
+  isAdminAuthenticated?: boolean;
+  setIsAdminAuthenticated?: (val: boolean) => void;
 }
 
 export const MainPadronView: React.FC<MainPadronViewProps> = ({
@@ -25,16 +37,21 @@ export const MainPadronView: React.FC<MainPadronViewProps> = ({
   collectedCedulas,
   onSearchElector,
   onSaveCedula,
+  onSaveFullElector,
   onTogglePasoPorMesa,
   onOpenAdmin,
   operatorPuesto,
   setOperatorPuesto,
+  isAdminAuthenticated = false,
+  setIsAdminAuthenticated,
 }) => {
   const [cedulaInput, setCedulaInput] = useState('');
   const [selectedElector, setSelectedElector] = useState<ElectorRecord | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isLiveMonitorOpen, setIsLiveMonitorOpen] = useState(false);
   const [isOperatorModalOpen, setIsOperatorModalOpen] = useState(false);
+  const [isAddElectorModalOpen, setIsAddElectorModalOpen] = useState(false);
+  const [addElectorInitialCedula, setAddElectorInitialCedula] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [notFoundCedula, setNotFoundCedula] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
@@ -143,7 +160,7 @@ export const MainPadronView: React.FC<MainPadronViewProps> = ({
               />
             </div>
 
-            {/* Action buttons row: PC Selector + Live Día D Monitor */}
+            {/* Action buttons row: PC Selector + Add Elector + Live Día D Monitor */}
             <div className="flex items-center gap-1.5 sm:gap-2">
               {/* Operator Active PC Selector Button */}
               <button
@@ -160,6 +177,28 @@ export const MainPadronView: React.FC<MainPadronViewProps> = ({
                   </span>
                   <span className="text-[11px] sm:text-xs font-black text-white font-mono leading-tight block">
                     {operatorPuesto}
+                  </span>
+                </div>
+              </button>
+
+              {/* Add New Elector Button */}
+              <button
+                onClick={() => {
+                  setAddElectorInitialCedula('');
+                  setIsAddElectorModalOpen(true);
+                }}
+                className="flex items-center gap-1.5 sm:gap-2 bg-slate-900/90 hover:bg-slate-800 border-2 border-red-500/80 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl shadow-xl backdrop-blur-md cursor-pointer transition-all hover:scale-105 active:scale-95 text-right group"
+                title="Registrar nuevo elector con todos los datos"
+              >
+                <div className="p-1 rounded-lg bg-red-500/20 text-red-400 group-hover:bg-red-500 group-hover:text-slate-950 transition-colors">
+                  <UserPlus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                </div>
+                <div className="text-right hidden xs:block">
+                  <span className="text-[9px] sm:text-[10px] font-mono text-red-300 font-bold uppercase block leading-none">
+                    Elector
+                  </span>
+                  <span className="text-[11px] sm:text-xs font-black text-white font-mono leading-tight block">
+                    + Cargar
                   </span>
                 </div>
               </button>
@@ -271,17 +310,33 @@ export const MainPadronView: React.FC<MainPadronViewProps> = ({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 pt-1 border-t border-slate-800">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-2 border-t border-slate-800">
                       <button
-                        onClick={handleSaveNotFound}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow cursor-pointer transition-colors"
+                        type="button"
+                        onClick={() => {
+                          setAddElectorInitialCedula(notFoundCedula);
+                          setIsAddElectorModalOpen(true);
+                        }}
+                        className="flex-2 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-xs sm:text-sm shadow-lg shadow-red-600/30 cursor-pointer transition-all active:scale-98"
                       >
-                        <PlusCircle className="w-4 h-4" />
-                        <span>Registrar Cédula</span>
+                        <UserPlus className="w-4 h-4" />
+                        <span>Cargar Elector con Todos los Datos</span>
                       </button>
+
                       <button
+                        type="button"
+                        onClick={handleSaveNotFound}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-amber-500/90 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow cursor-pointer transition-colors"
+                        title="Guardar solo número de cédula en recopilación"
+                      >
+                        <PlusCircle className="w-3.5 h-3.5" />
+                        <span>Guardar Solo C.I.</span>
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={() => setNotFoundCedula(null)}
-                        className="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer"
+                        className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer"
                       >
                         Cerrar
                       </button>
@@ -382,6 +437,8 @@ export const MainPadronView: React.FC<MainPadronViewProps> = ({
         onTogglePasoPorMesa={onTogglePasoPorMesa}
         operatorPuesto={operatorPuesto}
         onOpenPuestoModal={() => setIsOperatorModalOpen(true)}
+        isAdminAuthenticated={isAdminAuthenticated}
+        setIsAdminAuthenticated={setIsAdminAuthenticated}
       />
 
       {/* Operator PC Selection Modal */}
@@ -390,6 +447,23 @@ export const MainPadronView: React.FC<MainPadronViewProps> = ({
         onClose={() => setIsOperatorModalOpen(false)}
         currentPuesto={operatorPuesto}
         onSavePuesto={setOperatorPuesto}
+      />
+
+      {/* Add Elector Modal (Full Details) */}
+      <AddElectorModal
+        isOpen={isAddElectorModalOpen}
+        onClose={() => setIsAddElectorModalOpen(false)}
+        initialCedula={addElectorInitialCedula}
+        existingElectors={electors}
+        operatorPuesto={operatorPuesto}
+        onSaveFullElector={(newElector, options) => {
+          const created = onSaveFullElector(newElector, options);
+          setNotFoundCedula(null);
+          setSelectedElector(created);
+          setIsDetailModalOpen(true);
+          setSaveSuccess(`¡${created.nombreApellido} registrado con todos sus datos!`);
+          setTimeout(() => setSaveSuccess(null), 4000);
+        }}
       />
 
     </div>
